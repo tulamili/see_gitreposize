@@ -33,7 +33,15 @@ my $chg1 = `$cmd1`  =~ s/\n$//sr ; # 変更の個数
 $cmd1 .= " # -- -> " . BOLD $chg1 ;
 my $cmd2 = qq[ git commit --allow-empty -m '$msg' ] ; # --amend 
 say "$cmd1\n$cmd2" if $o{G} =~ /0/ ; 
-exit if $chg1 eq 0 && $o{G} =~ /1/ ; 
+
+# さらに確かさを高める条件で調べる。
+if ( $o{G} =~ /1/ && $chg1 eq 0 ) { 
+  my $p1 = qr | .* [0-9] .*/.* [0-9] .*=.* [0-9] .* |x ;
+  my $pattern = qr| du: $p1 obj: $p1 -- .*\d{4}-\d{2}-\d{2} .* \d{2}:\d{2}:\d{2} |x ; # 
+  exit if qx [ git log -n1 --oneline ] =~ m/$pattern/s ;
+} ; 
+
+exit ; 
 do { my $out2 = qx[$cmd2] ; binmode STDOUT , ':raw' ; say "-- ->", BOLD $out2 //'' } if $o{G} =~ /[12]/  ; 
 exit ; 
 
@@ -79,7 +87,7 @@ sub HELP_MESSAGE {
     -G N: Gitのコミットのメッセージ(N=0,1,2) 以下を参照せよ。
      
      -G 0 : 単に gitのコマンド文を出力する。そのgit文は、--allow-empty を使う。
-     -G 1 : HEAD~とHEADの間で、変更されたファイルの個数が1個以上の時のに、git文を出力する。
+     -G 1 : HEAD~とHEADの間の変更が、このプログラムで実行されてる可能性が高い場合は、そのgit文は実行しないようにする。
      -G 2 : その gitのコマンド文を実行する。(cronで実行すると、どんどんコミットが増えるので、やらない方が良い。) 
 
 
@@ -90,5 +98,7 @@ sub HELP_MESSAGE {
   その合計値に対する占有サイズの倍率と共に記録する。
   このことで、必要なディスクサイズの成長を見積もる。
 
+　開発メモ: 
+    * cronによる実行で、似たGitのコメントが多数作られないように、空コミットと直前コミット文の正規表現による条件チェックをしている。
 
 =cut
