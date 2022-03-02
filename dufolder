@@ -4,8 +4,9 @@ use feature 'say' ;
 use File::Find ; 
 use Filesys::DiskUsage qw [ du ] ; 
 use Getopt::Std ; getopts ',:' , \my %o ; 
-use POSIX qw [ strftime ] ; 
 use List::Util qw[ max sum0 ] ;
+use POSIX qw [ strftime ] ; 
+use Term::ANSIColor qw[ :constants ] ; $Term::ANSIColor::AUTORESET = 1 ;
 binmode STDOUT , ':utf8' ;
 $ARGV[0] //= '.' ; 
 $o{b} //= 512 ;
@@ -21,7 +22,9 @@ my $c2 = do { use File::Spec ; File::Spec -> catfile ( '' , '.' ) } ; # ディ�
 my @files = split/\n/ , qx [ find . ] , 0 ;
 my @visible = grep { ! m/\Q$c2\E/ } @files ;
 my ($b1, $b2) = ( sumdu (@files), sumdu (@visible) ) ; 
-say join " ", d3 $b1, scalar @files, d3 $b2 , scalar @visible, sprintf('%0.3f',$b1/$b2) , $dt  ; 
+print sprintf "du: %s/%s=%s", d3 $b1, d3 $b2 ,sprintf('%0.3f',$b1/$b2) ;
+print sprintf "  obj: %s/%s=%s", scalar @files, scalar @visible ,sprintf('%0.2f', scalar@files/scalar@visible) ;
+print "  -- $dt\n" ;
 
 
 exit ;
