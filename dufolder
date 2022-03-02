@@ -22,12 +22,15 @@ my $c2 = do { use File::Spec ; File::Spec -> catfile ( '' , '.' ) } ; # ディ�
 my @files = split/\n/ , qx [ find . ] , 0 ;
 my @visible = grep { ! m/\Q$c2\E/ } @files ;
 my ($b1, $b2) = ( sumdu (@files), sumdu (@visible) ) ; 
-print sprintf "du: %s/%s=%s", d3 $b1, d3 $b2 ,sprintf('%0.3f',$b1/$b2) ;
-print sprintf "  obj: %s/%s=%s", scalar @files, scalar @visible ,sprintf('%0.2f', scalar@files/scalar@visible) ;
-print "  -- $dt\n" ;
+my $msg ; 
+$msg .= sprintf "du: %s / %s = %s", d3 $b1, d3 $b2 ,sprintf('%0.3f',$b1/$b2) ;
+$msg .= sprintf "  obj: %s / %s = %s", scalar @files, scalar @visible ,sprintf('%0.2f', scalar@files/scalar@visible) ;
+$msg .= "  -- $dt" ;
+say $msg ;
+exit unless $o{G} ; # -Gの指定があればさらに続く。
 
 
-exit ;
+exit ; 
 
 sub change_dir ( $ ) {
   my $pwd =  qx[ cd $_[0] && pwd ] =~ s/\n$//r ; #  Perlのchdirはbashのようなチルダ展開が出来ない。
@@ -68,6 +71,7 @@ sub HELP_MESSAGE {
 
     -, 0 : 千進法の3桁区切りのコンマを打たない。
     -b 512 : 各ファイルの占有するブロックサイズを取得して、それを何倍にすることで占有サイズと見なすかの、倍率。
+    -G : Gitのコミットのメッセージ
 
  作成した目的: 
   
