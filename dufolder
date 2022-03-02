@@ -20,27 +20,10 @@ my $c2 = do { use File::Spec ; File::Spec -> catfile ( '' , '.' ) } ; # ディ�
 & change_dir ( $ARGV[0] ) ; # $ARGV[1] // '.' としても良かったが、cronで実行されるので、ディレクトリ名は必ず指定する癖を作業者に付けさせる。
 my @files = split/\n/ , qx [ find . ] , 0 ;
 my @visible = grep { ! m/\Q$c2\E/ } @files ;
-
 my ($b1, $b2) = ( sumdu (@files), sumdu (@visible) ) ; 
 say join " ", d3 $b1, scalar @files, d3 $b2 , scalar @visible, sprintf('%0.3f',$b1/$b2) , $dt  ; 
 
 
-#do { say join "\t" , -d $_ , -s $_, (stat $_)[7,11,12], (stat$_)[12]*512, du ( {'max-depth'=>1}, $_) , $_} for @files ;
-
-##$" ="\n" ;print "@files " ; exit ;
-#my $blocks = d3 du( { blocks => 1 } , '.' ) ;
-#my $total = d3 du( { exclude => qr/^\..$/ } , '.' ) ; # perldoc の解説(qr/^\./)でうまくいかなかった! 要報告かも。
-
-
-#my @size = du ( { 'max-depth' => 0 }, glob '*' ) ; 
-#say "@size" ;
-#my %sizes = du( { 'make-hash' => 1 } , '.'   );
-#use Data::Dumper ; 
-#say Dumper %sizes ;exit ;
-
-#find ( sub{say $_} , '.' ) ;
-
-#say "$blocks $total $size " ;
 exit ;
 
 sub change_dir ( $ ) {
