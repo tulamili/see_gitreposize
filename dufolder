@@ -30,7 +30,7 @@ $msg .= "  -- $dt" ;
 do { say $msg ; exit } unless exists $o{G} ; # -Gの指定があればさらに続く。
 my $cmd1 = qq[ git diff --raw HEAD~..HEAD | wc -l ] ; # 何個のファイルが HEADの前と、HEADの間で変更があったか。
 my $chg1 = `$cmd1`  =~ s/\n$//sr ; # 変更の個数
-$cmd1 .= " # -- -> $chg1" ;
+$cmd1 .= " # -- -> " . BOLD $chg1 ;
 my $cmd2 = qq[ git commit --allow-empty -m '$msg' ] ; # --amend 
 say "$cmd1\n$cmd2" if $o{G} =~ /0/ ; 
 exit if $chg1 eq 0 && $o{G} =~ /1/ ; 
