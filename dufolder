@@ -3,52 +3,58 @@ use strict ; use warnings ;
 use feature 'say' ;
 use File::Find ; 
 use Filesys::DiskUsage qw [ du ] ; 
-use Getopt::Std ; getopts ',:G:' , \my %o ; 
+use Getopt::Std ; getopts ',:b:BG:' , \my %o ; 
 use List::Util qw[ max sum0 ] ;
 use POSIX qw [ strftime ] ; 
 use Term::ANSIColor qw[ :constants ] ; $Term::ANSIColor::AUTORESET = 1 ;
 binmode STDOUT , ':utf8' ;
-$ARGV[0] //= '.' ; 
 $o{b} //= 512 ;
 
 sub d3 ($) { $_[0] =~ s/(?<=\d)(?=(\d\d\d)+($|\D))/,/gr } ; # 数を3桁区切りに変換する。
-* d3 = sub ($) { $_[0] } if 0 eq ( $o{','} // '') ; # -,0が指定されたら3桁区切りにしない。
-sub sumdu (@) { sum0 map { my @s = stat $_ ; max ( $s[7] , $o{b} * $s[12] ) } @_ } 
+if ( 0 eq ( $o{','} // '') ) { * d3 = sub ($) { $_[0] } } ; # -,0が指定されたら3桁区切りにしない。
 
-my $dt = strftime ( '%Y-%m-%d(%a) %H:%M:%S %Z(%z)', localtime () ) ; 
-my $c1 = do { use File::Spec ; File::Spec -> catfile ( File::Spec -> curdir() , '' ) } ; # "./" ただし移植性のため。
-my $c2 = do { use File::Spec ; File::Spec -> catfile ( '' , '.' ) } ; # ディレクトリ階層の区切りの直後にドットがあるパターン
-& change_dir ( $ARGV[0] ) ; # $ARGV[1] // '.' としても良かったが、cronで実行されるので、ディレクトリ名は必ず指定する癖を作業者に付けさせる。
-my @files = split/\n/ , qx [ find . ] , 0 ;
-my @visible = grep { ! m/\Q$c2\E/ } @files ;
-my ($b1, $b2) = ( sumdu (@files), sumdu (@visible) ) ; 
-my $msg ; 
-$msg .= sprintf "du: %s / %s = %s", d3 $b1, d3 $b2 ,sprintf('%0.3f',$b1/$b2) ;
-$msg .= sprintf "  obj: %s / %s = %s", d3 scalar @files, d3 scalar @visible ,sprintf('%0.2f', scalar@files/scalar@visible) ;
-$msg .= "  -- $dt" ;
-#say $msg ;
+my $datetime = strftime ( '%Y-%m-%d(%a) %H:%M:%S %Z(%z)', localtime () ) ; 
+& change_dir ( $ARGV[0] // '.' ) ; 
+& getFiles ( \my @files , \my @visible ) ; # visibeは見えるファイル、つまり、ドットファイル以外のファイルを意味する。
+#if ( $o{B} ) { 1 }
+& prepCommands ( \@files , \@visible , $datetime, my $msg , my $change , my $cmd1 , my $cmd2 ) ; # change はファイルの変更個数, 
 do { say $msg ; exit } unless exists $o{G} ; # -Gの指定があればさらに続く。
-my $cmd1 = qq[ git diff --raw HEAD~..HEAD | wc -l ] ; # 何個のファイルが HEADの前と、HEADの間で変更があったか。
-my $chg1 = `$cmd1`  =~ s/\n$//sr ; # 変更の個数
-$cmd1 .= " # -- -> " . BOLD $chg1 ;
-my $cmd2 = qq[ git commit --allow-empty -m '$msg' ] ; # --amend 
-say "$cmd1\n$cmd2" if $o{G} =~ /0/ ; 
-
-# さらに確かさを高める条件で調べる。
-if ( $o{G} =~ /1/ && $chg1 eq 0 ) { 
-  my $p1 = qr | .* [0-9] .*/.* [0-9] .*=.* [0-9] .* |x ;
-  my $pattern = qr| du: $p1 obj: $p1 -- .*\d{4}-\d{2}-\d{2} .* \d{2}:\d{2}:\d{2} |x ; # 
-  exit if qx [ git log -n1 --oneline ] =~ m/$pattern/s ;
-} ; 
-
-exit ; 
-do { my $out2 = qx[$cmd2] ; binmode STDOUT , ':raw' ; say "-- ->", BOLD $out2 //'' } if $o{G} =~ /[12]/  ; 
+if ( $o{G} =~ /0/ ) { say "$cmd1\n$cmd2" } ; # -Gに0があれば、コマンド文を表示
+if ( $o{G} =~ /1/ ) { & againCheck ( $change ) and exit } ; # -G に1があれば、もしも前のコミットでこのコマンドでコミット済みなら終了。
+if ( $o{G} =~ /[12]/ ) { do { my $out2 = qx[$cmd2] ; binmode STDOUT , ':raw' ; say "-- ->", BOLD $out2 //'' } } ; # コミット実行! 
 exit ; 
 
 sub change_dir ( $ ) {
   my $pwd =  qx[ cd $_[0] && pwd ] =~ s/\n$//r ; #  Perlのchdirはbashのようなチルダ展開が出来ない。
   die BRIGHT_RED BOLD qq[Failed: "cd $_[0]"] if $? ;
   chdir $pwd or die qq [Failed: "chdir $pwd"] ; # 
+}
+
+sub getFiles ( $$ ) { 
+  my $c2 = do { use File::Spec ; File::Spec -> catfile ( '' , '.' ) } ; # ディレクトリ階層の区切りの直後にドットがあるパターン
+  @{ $_[0] } = split/\n/ , qx [ find . ] , 0 ;
+  @{ $_[1] } = grep { ! m/\Q$c2\E/ } @{ $_[0] } ;
+}
+
+sub sumdu (@) { sum0 map { my @s = stat $_ ; max ( $s[7] , $o{b} * $s[12] ) } @_ } 
+
+sub prepCommands ( $$$ $$$$ ) { 
+  my ($b1,$b2) = map { sumdu ( @{ $_ [ $_ ] } ) } 0 .. 1 ; # バイト単位の数値なのでbを変数名に用いた。
+  my ($l1,$l2) = map { scalar @{ $_ [ $_ ] } } 0 .. 1 ; # 配列の長さ l 
+  $_[3] = sprintf "du: %s / %s = %0.3f", d3 $b1, d3 $b2 , $b1 / $b2 ;
+  $_[3] .= sprintf "  obj: %s / %s = %0.2f  -- %s", d3 $l1 , d3 $l2 , $l1 / $l2 , $_[2] ;
+  $_[5] = qq[ git diff --raw HEAD~..HEAD | wc -l # -- -> ] ; 
+  $_[4] = (`$_[5]` =~ s/\n$//sr) ;
+  $_[5] .= BOLD $_[4]  ;# 何個のファイルが HEADとその前の間で変更があったか。
+  $_[6] = qq[ git commit --allow-empty -m '$_[3]' ] ; # --amend 
+}
+
+sub againCheck ($) {
+  if ( $_[0] eq 0 ) { # さらに確かさを高めるために、計2個の条件で調べる。
+    my $p1 = qr | .* [0-9] .*/.* [0-9] .*=.* [0-9] .* |x ; # <-- 少し雑な条件かも。しかし、きちんと書くと、バグの元になりやすい。
+    my $pattern = qr| du: $p1 obj: $p1 -- .*\d{4}-\d{2}-\d{2} .* \d{2}:\d{2}:\d{2} |x ; # 
+    return 1 if qx [ git log -n1 --oneline ] =~ m/$pattern/s ;
+  } ; 
 }
 
 #   2022-03-01 thu ; Toshiyuki Shimono 下野寿之 (統計数理研究所 特任研究員)
@@ -84,11 +90,11 @@ sub HELP_MESSAGE {
 
     -, 0 : 千進法の3桁区切りのコンマを打たない。
     -b 512 : 各ファイルの占有するブロックサイズを取得して、それを何倍にすることで占有サイズと見なすかの、倍率。
-    -G N: Gitのコミットのメッセージ(N=0,1,2) 以下を参照せよ。
-     
+    -G N: Gitのコミットのメッセージ(N=0,1,2) 以下を参照せよ。     
      -G 0 : 単に gitのコマンド文を出力する。そのgit文は、--allow-empty を使う。
      -G 1 : HEAD~とHEADの間の変更が、このプログラムで実行されてる可能性が高い場合は、そのgit文は実行しないようにする。
      -G 2 : その gitのコマンド文を実行する。(cronで実行すると、どんどんコミットが増えるので、やらない方が良い。) 
+    -G 01 や -G02 など、0と1と2の複数を使ったオプション指定の仕方もできる。
 
 
  作成した目的: 
