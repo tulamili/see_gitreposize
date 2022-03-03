@@ -99,7 +99,7 @@ sub HELP_MESSAGE {
 
 =head1 
 
-  $0 directory 
+  $0 directory [directory] [directory] ..
   
  機能: 
 
