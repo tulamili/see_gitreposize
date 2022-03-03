@@ -28,9 +28,9 @@ my @files ; # 探索したファイルを収納する。
 my @visible ; # 非ドットファイルの全体。
 my $d0 = cwd ; 
 for ( @ARGV ) { 
-  & change_dir ( $_ ) ; 
-  & getFiles ( \@files , \@visible ) ; # visibeは見えるファイル、つまり、ドットファイル以外のファイルを意味する。
-  & change_dir ( $d0 ) ; # 元々のディレクトリに帰還する
+  #& change_dir ( $_ ) ; 
+  & getFiles ( $_ , \@files , \@visible ) ; # visibeは見えるファイル、つまり、ドットファイル以外のファイルを意味する。
+  #& change_dir ( $d0 ) ; # 元々のディレクトリに帰還する
 } 
 if ( exists $o{B} ) { & fileDimTable ( @visible ) ; exit } 
 
@@ -49,13 +49,13 @@ sub change_dir ( $ ) {
   chdir $pwd or die qq [Failed: "chdir $pwd"] ; # 
 }
 
-sub getFiles ( $$ ) { 
+sub getFiles ( $ $$ ) { 
   state $inodes ;
-  my $c2 = do { File::Spec -> catfile ( '' , '.' ) } ; # ディレクトリ階層の区切りの直後にドットがあるパターン "/."
-  my @found = split /\n/ , qx [ find . ] , 0 ; # find コマンドで見つけたファイルを格納。
+  state $c2 = do { File::Spec -> catfile ( '' , '.' ) } ; # ディレクトリ階層の区切りの直後にドットがあるパターン "/."
+  my @found = split /\n/ , qx [ find $_[0] ] , 0 ; # find コマンドで見つけたファイルを格納。
   @found = grep { ! $inodes -> { ( stat $_ ) [ 1 ] } ++ }  @found if ! $optI0 ; # inodeで過去に一致したものは除去する
-  push @{ $_[0] } , @found ;
-  push @{ $_[1] } , grep { ! m/\Q$c2\E/ } @found ; 
+  push @{ $_[1] } , @found ;
+  push @{ $_[2] } , grep { ! m/\Q$c2\E/ } @found ; 
 }
 
 sub prepCommands ( $$$ $$$$ ) { 
