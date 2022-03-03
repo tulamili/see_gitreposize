@@ -12,6 +12,7 @@ binmode STDOUT , ':utf8' ;
 
 $o{b} //= 512 ; # stat関数で1個のファイルのブロック数を得た場合に、それを何倍したら、ディスクを占有するバイト数になるか。
 my $optI0 = 0 eq ($o{i} // '' ) ; # -i0の指定があるか否か。
+#say  $optI0 ;
 $ARGV[0] = '.' if @ARGV == 0 ;
 
 # 特殊な関数
@@ -20,6 +21,7 @@ sub d3 ($) { $_[0] =~ s/(?<=\d)(?=(\d\d\d)+($|\D))/,/gr } ; # 数を3桁区切�
 if ( 0 eq ( $o{','} // '') ) { * d3 = sub ($) { $_[0] } } ; # -,0が指定されたら3桁区切りにしない。
 
 # メインとなる部分
+my $inodes ;
 
 my $datetime = strftime ( '%Y-%m-%d(%a) %H:%M:%S %Z(%z)', localtime () ) ; 
 my @files ; # 探索したファイルを収納する。
@@ -51,12 +53,12 @@ sub getFiles ( $$ ) {
 }
 
 sub sumdu ( @ ) { 
-  my $inodes ;
   my $sum = 0 ;
   for ( @_ ) { 
-    my @s = stat $_  ; # $s[1] = ino ; $s[7] = size ; $s[12] = blocks ;
-    $inodes->{ $s[1] } ++ and next if defined $s[1] && ! $optI0 ;
+    my @s = stat $_  ; # stat の返り値は、$s[1] = ino ; $s[7] = size ; $s[12] = blocks ;
+    do { next if $inodes->{ $s[1] } ++ } if defined $s[1] && ! $optI0 ;
     $sum += max ( $s[7] , $o{b} * $s[12] ) ; # <-- Unixコマンドduと同じ事をしたつもり。
+    #say "\$sum=$sum" ;
   }
   return $sum ;
 }
