@@ -5,7 +5,6 @@ use warnings ;
 use feature qw [ say state ] ;
 use Cwd ; 
 use File::Spec ; 
-use Filesys::DiskUsage qw [ du ] ; 
 use Getopt::Std ; getopts ',:b:i:B:G:' , \my %o ; 
 use List::Util qw[ max sum0 ] ;
 use POSIX qw [ strftime ] ; 
