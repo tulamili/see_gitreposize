@@ -21,7 +21,7 @@ sub d3 ($) { $_[0] =~ s/(?<=\d)(?=(\d\d\d)+($|\D))/,/gr } ; # 数を3桁区切�
 if ( 0 eq ( $o{','} // '') ) { * d3 = sub ($) { $_[0] } } ; # -,0が指定されたら3桁区切りにしない。
 
 # メインとなる部分
-my $inodes ;
+#my $inodes ;
 
 my $datetime = strftime ( '%Y-%m-%d(%a) %H:%M:%S %Z(%z)', localtime () ) ; 
 my @files ; # 探索したファイルを収納する。
@@ -47,23 +47,16 @@ sub change_dir ( $ ) {
 }
 
 sub getFiles ( $$ ) { 
+  state $inodes ;
   my $c2 = do { File::Spec -> catfile ( '' , '.' ) } ; # ディレクトリ階層の区切りの直後にドットがあるパターン "/."
-  push @{ $_[0] } , split /\n/ , qx [ find . ] , 0 ;
+  my @tmp = split /\n/ , qx [ find . ] , 0 ;
+  @tmp = grep { ! $inodes -> { ( stat $_ ) [ 1 ] } ++ }  @tmp if ! $optI0 ;
+  push @{ $_[0] } , @tmp ;
   push @{ $_[1] } , grep { ! m/\Q$c2\E/ } @{ $_[0] } ;
 }
 
-sub sumdu ( @ ) { 
-  my $sum = 0 ;
-  for ( @_ ) { 
-    my @s = stat $_  ; # stat の返り値は、$s[1] = ino ; $s[7] = size ; $s[12] = blocks ;
-    do { next if $inodes->{ $s[1] } ++ } if defined $s[1] && ! $optI0 ;
-    $sum += max ( $s[7] , $o{b} * $s[12] ) ; # <-- Unixコマンドduと同じ事をしたつもり。
-    #say "\$sum=$sum" ;
-  }
-  return $sum ;
-}
-
 sub prepCommands ( $$$ $$$$ ) { 
+  sub sumdu ( @ ) { sum0 map { my @s = stat $_ ; max ( $s[7] , $o{b} * $s[12] ) } @_ } # <-- Unixコマンドduと同じ事をしたつもり。
   my ($b1,$b2) = map { sumdu ( @{ $_ [ $_ ] } ) } 0 , 1 ; # バイト単位の数値なのでbを変数名に用いた。
   my ($l1,$l2) = map { scalar @{ $_ [ $_ ] } } 0 , 1 ; # 配列の長さ l 
   $_[3] = sprintf "du: %s / %s = %0.3f", d3 $b1, d3 $b2 , $b1 / $b2 ;
