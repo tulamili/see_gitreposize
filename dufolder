@@ -27,11 +27,7 @@ my $datetime = strftime ( '%Y-%m-%d(%a) %H:%M:%S %Z(%z)', localtime () ) ;
 my @files ; # 探索したファイルを収納する。
 my @visible ; # 非ドットファイルの全体。
 my $d0 = cwd ; 
-for ( @ARGV ) { 
-  #& change_dir ( $_ ) ; 
-  & getFiles ( $_ , \@files , \@visible ) ; # visibeは見えるファイル、つまり、ドットファイル以外のファイルを意味する。
-  #& change_dir ( $d0 ) ; # 元々のディレクトリに帰還する
-} 
+& getFiles ( $_ , \@files , \@visible ) for @ARGV ; 
 if ( exists $o{B} ) { & fileDimTable ( @visible ) ; exit } 
 
 & prepCommands ( \@files , \@visible , $datetime, my $msg , my $change , my $cmd1 , my $cmd2 ) ; # change はファイルの変更個数, 
@@ -42,12 +38,6 @@ if ( $o{G} =~ /[12]/ ) { do { my $out2 = qx[$cmd2] ; binmode STDOUT , ':raw' ; s
 exit ; 
 
 # 上記を構造化するために切り出した関数
-
-sub change_dir ( $ ) {
-  my $pwd =  qx[ cd $_[0] && pwd ] =~ s/\n$//r ; #  Perlのchdirはbashのようなチルダ展開が出来ない。
-  die BRIGHT_RED BOLD qq[Failed: "cd $_[0]"] if $? ;
-  chdir $pwd or die qq [Failed: "chdir $pwd"] ; # 
-}
 
 sub getFiles ( $ $$ ) { 
   state $inodes ;
@@ -79,8 +69,8 @@ sub againCheck ( $ ) {
 }
 
 sub fileDimTable ( @ ) { 
-  say join "\t" , qw[ dir? occ. Size bsize Blocks S/B(1) S/B(2) filename ] ;  
-  do { my @s = stat $_ ; say join "\t" , -d $_ , $s[12]*$o{b}, @s[7,11,12], & pratio ( @s[7,12] ) , $_ } for @_ ;
+  say join "\t" , qw[ dir? occ. Size bsize Blocks S/B(1) S/B(2) inode filename ] ;  
+  do { my @s = stat $_ ; say join "\t" , -d $_ , $s[12]*$o{b}, @s[7,11,12], & pratio ( @s[7,12] ) , $s[1], $_ } for @_ ;
 
   sub pratio ($$) { 
     my $o1 = $_[1] == 0 ? '-' : sprintf '%1.2f' , $_[0] / $_[1] ; 
