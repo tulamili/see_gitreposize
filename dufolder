@@ -1,6 +1,9 @@
 #!/usr/bin/perl
-use strict ; use warnings ; 
+# use 5.030 ; 
+use strict ; 
+use warnings ; 
 use feature qw [ say state ] ;
+use Cwd ; 
 use File::Find ; 
 use File::Spec ; 
 use Filesys::DiskUsage qw [ du ] ; 
@@ -12,7 +15,6 @@ binmode STDOUT , ':utf8' ;
 
 $o{b} //= 512 ; # stat関数で1個のファイルのブロック数を得た場合に、それを何倍したら、ディスクを占有するバイト数になるか。
 my $optI0 = 0 eq ($o{i} // '' ) ; # -i0の指定があるか否か。
-#say  $optI0 ;
 $ARGV[0] = '.' if @ARGV == 0 ;
 
 # 特殊な関数
@@ -21,17 +23,18 @@ sub d3 ($) { $_[0] =~ s/(?<=\d)(?=(\d\d\d)+($|\D))/,/gr } ; # 数を3桁区切�
 if ( 0 eq ( $o{','} // '') ) { * d3 = sub ($) { $_[0] } } ; # -,0が指定されたら3桁区切りにしない。
 
 # メインとなる部分
-#my $inodes ;
-
 my $datetime = strftime ( '%Y-%m-%d(%a) %H:%M:%S %Z(%z)', localtime () ) ; 
 my @files ; # 探索したファイルを収納する。
 my @visible ; # 非ドットファイルの全体。
-& change_dir ( $ARGV[0] ) ; 
-& getFiles ( \@files , \@visible ) ; # visibeは見えるファイル、つまり、ドットファイル以外のファイルを意味する。
-
+my $d0 = cwd ; 
+for ( @ARGV ) { 
+  & change_dir ( $_ ) ; 
+  & getFiles ( \@files , \@visible ) ; # visibeは見えるファイル、つまり、ドットファイル以外のファイルを意味する。
+  & change_dir ( $d0 ) ; # 元々のディレクトリに帰還する
+} 
 if ( exists $o{B} ) { & fileDimTable ( @visible ) ; exit } 
-& prepCommands ( \@files , \@visible , $datetime, my $msg , my $change , my $cmd1 , my $cmd2 ) ; # change はファイルの変更個数, 
 
+& prepCommands ( \@files , \@visible , $datetime, my $msg , my $change , my $cmd1 , my $cmd2 ) ; # change はファイルの変更個数, 
 do { say $msg ; exit } unless exists $o{G} ; # -Gの指定があればさらに続く。
 if ( $o{G} =~ /0/ ) { say "$cmd1\n$cmd2" } ; # -Gに0があれば、コマンド文を表示
 if ( $o{G} =~ /1/ ) { & againCheck ( $change ) and exit } ; # -G に1があれば、もしも前のコミットでこのコマンドでコミット済みなら終了。
@@ -49,10 +52,10 @@ sub change_dir ( $ ) {
 sub getFiles ( $$ ) { 
   state $inodes ;
   my $c2 = do { File::Spec -> catfile ( '' , '.' ) } ; # ディレクトリ階層の区切りの直後にドットがあるパターン "/."
-  my @tmp = split /\n/ , qx [ find . ] , 0 ;
-  @tmp = grep { ! $inodes -> { ( stat $_ ) [ 1 ] } ++ }  @tmp if ! $optI0 ;
-  push @{ $_[0] } , @tmp ;
-  push @{ $_[1] } , grep { ! m/\Q$c2\E/ } @{ $_[0] } ;
+  my @found = split /\n/ , qx [ find . ] , 0 ; # find コマンドで見つけたファイルを格納。
+  @found = grep { ! $inodes -> { ( stat $_ ) [ 1 ] } ++ }  @found if ! $optI0 ; # inodeで過去に一致したものは除去する
+  push @{ $_[0] } , @found ;
+  push @{ $_[1] } , grep { ! m/\Q$c2\E/ } @found ; 
 }
 
 sub prepCommands ( $$$ $$$$ ) { 
