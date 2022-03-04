@@ -5,7 +5,7 @@ use warnings ;
 use feature qw [ say state ] ;
 use Cwd ; 
 use File::Spec ; 
-use Getopt::Std ; getopts ',:b:i:B:G:' , \my %o ; 
+use Getopt::Std ; getopts '.,:b:i:B:G:' , \my %o ; 
 use List::Util qw[ max sum0 ] ;
 use POSIX qw [ strftime ] ; 
 use Term::ANSIColor qw[ :constants ] ; $Term::ANSIColor::AUTORESET = 1 ;
@@ -26,7 +26,7 @@ my @files ; # 探索したファイルを収納する。
 my @visible ; # 非ドットファイルの全体。
 my $d0 = cwd ; 
 & getFiles ( $_ , \@files , \@visible ) for @ARGV ; 
-if ( exists $o{B} ) { & fileDimTable ( @visible ) ; exit } 
+if ( exists $o{B} ) { & fileDimTable ( $o{'.'} ? @files : @visible ) ; exit } 
 
 & prepCommands ( \@files , \@visible , $datetime, my $msg , my $change , my $cmd1 , my $cmd2 ) ; # change はファイルの変更個数, 
 do { say $msg ; exit } unless exists $o{G} ; # -Gの指定があればさらに続く。
@@ -66,7 +66,7 @@ sub againCheck ( $ ) {
   } ; 
 }
 
-sub fileDimTable ( @ ) { 
+sub fileDimTable ( @ ) { # -B8 で起動
   say join "\t" , qw[ dir? occ. Size bsize Blocks S/B(1) S/B(2) inode filename ] ;  
   do { my @s = stat $_ ; say join "\t" , -d $_ , $s[12]*$o{b}, @s[7,11,12], & pratio ( @s[7,12] ) , $s[1], $_ } for @_ ;
 
@@ -127,7 +127,9 @@ sub HELP_MESSAGE {
     ※ 出力表の 各行において Occ. の列が、Sizeよりも大きくなれば -b(小文字)の指定は合っている。
       その時に-bで指定する数は、S/B(1)とS/B(2)の間の数になるはず。ここで(1)は下限、(2)は上限を意味する。
 
-    --help : このコマンドのヘルプ(つまりはここに現れる文面)を出力して、終了。
+    -.   : -B と共に用いる。ドットファイルについての分も表示する。
+
+    --help : このコマンドのヘルプ(つまり、ここに現れる文面)を出力して、終了。
 
  作成した目的: 
   
